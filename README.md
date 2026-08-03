@@ -70,12 +70,4 @@ app
 - Dark Mode
 - Search and filters
 
-## 👩‍💻 Author
 
-**Areeba Eman**
-
-GitHub: https://github.com/biyya-dev
-
----
-
-⭐ If you found this project useful, please give it a star!
