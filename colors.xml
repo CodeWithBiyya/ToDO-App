@@ -1,0 +1,109 @@
+package com.example.todoapp.ui.detail
+
+import android.os.Bundle
+import android.view.View
+import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
+import com.bumptech.glide.Glide
+import com.example.todoapp.R
+import com.example.todoapp.TodoApplication
+import com.example.todoapp.data.TodoEntity
+import com.example.todoapp.databinding.FragmentTodoDetailBinding
+import com.example.todoapp.util.ImageStorageUtil
+import com.example.todoapp.viewmodel.TodoViewModel
+import com.example.todoapp.viewmodel.TodoViewModelFactory
+import kotlinx.coroutines.launch
+
+class TodoDetailFragment : Fragment(R.layout.fragment_todo_detail) {
+
+    private var _binding: FragmentTodoDetailBinding? = null
+    private val binding get() = _binding!!
+
+    private val viewModel: TodoViewModel by viewModels {
+        TodoViewModelFactory((requireActivity().application as TodoApplication).repository)
+    }
+
+    private val todoId: Long by lazy { requireArguments().getLong("todoId") }
+    private var currentTodo: TodoEntity? = null
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        _binding = FragmentTodoDetailBinding.bind(view)
+
+        binding.btnBack.setOnClickListener { findNavController().popBackStack() }
+        loadTodo()
+
+        binding.btnToggleComplete.setOnClickListener {
+            currentTodo?.let { todo ->
+                viewModel.toggleCompleted(todo)
+                loadTodo()
+            }
+        }
+
+        binding.btnDelete.setOnClickListener {
+            currentTodo?.let { todo -> confirmDelete(todo) }
+        }
+    }
+
+    private fun loadTodo() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val todo = viewModel.getTodoById(todoId)
+            if (todo == null) {
+                findNavController().popBackStack()
+                return@launch
+            }
+            currentTodo = todo
+            bindTodo(todo)
+        }
+    }
+
+    private fun bindTodo(todo: TodoEntity) {
+        binding.txtTitle.text = todo.title
+        binding.txtDescription.text = todo.description.ifBlank {
+            getString(R.string.no_description)
+        }
+
+        if (todo.imagePath != null) {
+            Glide.with(this)
+                .load(todo.imagePath)
+                .placeholder(R.drawable.ic_image_placeholder)
+                .error(R.drawable.ic_image_placeholder)
+                .centerCrop()
+                .into(binding.imgFull)
+        } else {
+            binding.imgFull.setImageResource(R.drawable.ic_image_placeholder)
+        }
+
+        if (todo.isCompleted) {
+            binding.chipStatus.text = getString(R.string.status_completed)
+            binding.chipStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.brand_accent))
+            binding.btnToggleComplete.text = getString(R.string.mark_as_incomplete)
+        } else {
+            binding.chipStatus.text = getString(R.string.status_pending)
+            binding.chipStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
+            binding.btnToggleComplete.text = getString(R.string.mark_as_complete)
+        }
+    }
+
+    private fun confirmDelete(todo: TodoEntity) {
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.delete_todo_title)
+            .setMessage(R.string.delete_todo_message)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.delete) { _, _ ->
+                ImageStorageUtil.deleteImage(todo.imagePath)
+                viewModel.delete(todo)
+                findNavController().popBackStack()
+            }
+            .show()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+}

@@ -1,0 +1,33 @@
+package com.example.todoapp.ui.splash
+
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.View
+import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
+import com.example.todoapp.R
+
+class SplashFragment : Fragment(R.layout.fragment_splash) {
+
+    private val handler = Handler(Looper.getMainLooper())
+    private val navigateRunnable = Runnable {
+        if (isAdded) {
+            findNavController().navigate(R.id.action_splash_to_home)
+        }
+    }
+
+    companion object {
+        private const val SPLASH_DELAY_MS = 2500L
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        handler.postDelayed(navigateRunnable, SPLASH_DELAY_MS)
+    }
+
+    override fun onDestroyView() {
+        handler.removeCallbacks(navigateRunnable)
+        super.onDestroyView()
+    }
+}

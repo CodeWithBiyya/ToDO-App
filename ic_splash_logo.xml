@@ -1,0 +1,87 @@
+package com.example.todoapp.ui.home
+
+import android.os.Bundle
+import android.view.View
+import androidx.appcompat.app.AlertDialog
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.todoapp.R
+import com.example.todoapp.TodoApplication
+import com.example.todoapp.data.TodoEntity
+import com.example.todoapp.databinding.FragmentHomeBinding
+import com.example.todoapp.util.ImageStorageUtil
+import com.example.todoapp.viewmodel.TodoViewModel
+import com.example.todoapp.viewmodel.TodoViewModelFactory
+import kotlinx.coroutines.launch
+
+class HomeFragment : Fragment(R.layout.fragment_home) {
+
+    private var _binding: FragmentHomeBinding? = null
+    private val binding get() = _binding!!
+
+    private val viewModel: TodoViewModel by viewModels {
+        TodoViewModelFactory((requireActivity().application as TodoApplication).repository)
+    }
+
+    private lateinit var adapter: TodoAdapter
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        _binding = FragmentHomeBinding.bind(view)
+
+        setupRecyclerView()
+        observeTodos()
+
+        binding.fabAddTodo.setOnClickListener {
+            findNavController().navigate(R.id.action_home_to_addTodo)
+        }
+    }
+
+    private fun setupRecyclerView() {
+        adapter = TodoAdapter(
+            onItemClick = { todo ->
+                val bundle = Bundle().apply { putLong("todoId", todo.id) }
+                findNavController().navigate(R.id.action_home_to_detail, bundle)
+            },
+            onCheckClick = { todo -> viewModel.toggleCompleted(todo) },
+            onDeleteClick = { todo -> confirmDelete(todo) }
+        )
+        binding.recyclerTodos.layoutManager = LinearLayoutManager(requireContext())
+        binding.recyclerTodos.adapter = adapter
+    }
+
+    private fun observeTodos() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.allTodos.collect { todos ->
+                    adapter.submitList(todos)
+                    binding.layoutEmptyState.visibility = if (todos.isEmpty()) View.VISIBLE else View.GONE
+                    binding.recyclerTodos.visibility = if (todos.isEmpty()) View.GONE else View.VISIBLE
+                }
+            }
+        }
+    }
+
+    private fun confirmDelete(todo: TodoEntity) {
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.delete_todo_title)
+            .setMessage(R.string.delete_todo_message)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.delete) { _, _ ->
+                ImageStorageUtil.deleteImage(todo.imagePath)
+                viewModel.delete(todo)
+            }
+            .show()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        binding.recyclerTodos.adapter = null
+        _binding = null
+    }
+}

@@ -1,0 +1,83 @@
+package com.example.todoapp.ui.home
+
+import android.graphics.Paint
+import android.view.LayoutInflater
+import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.example.todoapp.R
+import com.example.todoapp.data.TodoEntity
+import com.example.todoapp.databinding.ItemTodoBinding
+
+class TodoAdapter(
+    private val onItemClick: (TodoEntity) -> Unit,
+    private val onCheckClick: (TodoEntity) -> Unit,
+    private val onDeleteClick: (TodoEntity) -> Unit
+) : ListAdapter<TodoEntity, TodoAdapter.TodoViewHolder>(DiffCallback) {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TodoViewHolder {
+        val binding = ItemTodoBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return TodoViewHolder(binding)
+    }
+
+    override fun onBindViewHolder(holder: TodoViewHolder, position: Int) {
+        holder.bind(getItem(position))
+    }
+
+    inner class TodoViewHolder(private val binding: ItemTodoBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+
+        fun bind(todo: TodoEntity) {
+            binding.txtTitle.text = todo.title
+            binding.txtDescription.text = todo.description.ifBlank {
+                binding.root.context.getString(R.string.no_description)
+            }
+
+            if (todo.imagePath != null) {
+                Glide.with(binding.imgThumbnail)
+                    .load(todo.imagePath)
+                    .diskCacheStrategy(DiskCacheStrategy.NONE)
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .error(R.drawable.ic_image_placeholder)
+                    .centerCrop()
+                    .into(binding.imgThumbnail)
+            } else {
+                Glide.with(binding.imgThumbnail).clear(binding.imgThumbnail)
+                binding.imgThumbnail.setImageResource(R.drawable.ic_image_placeholder)
+            }
+
+            binding.btnCheck.setImageResource(
+                if (todo.isCompleted) R.drawable.ic_check_circle_filled
+                else R.drawable.ic_check_circle_outline
+            )
+
+            applyCompletedStyle(todo.isCompleted)
+
+            binding.root.setOnClickListener { onItemClick(todo) }
+            binding.btnCheck.setOnClickListener { onCheckClick(todo) }
+            binding.btnDelete.setOnClickListener { onDeleteClick(todo) }
+        }
+
+        private fun applyCompletedStyle(isCompleted: Boolean) {
+            val alpha = if (isCompleted) 0.55f else 1f
+            binding.root.alpha = alpha
+
+            if (isCompleted) {
+                binding.txtTitle.paintFlags = binding.txtTitle.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+            } else {
+                binding.txtTitle.paintFlags = binding.txtTitle.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
+            }
+        }
+    }
+
+    companion object DiffCallback : DiffUtil.ItemCallback<TodoEntity>() {
+        override fun areItemsTheSame(oldItem: TodoEntity, newItem: TodoEntity): Boolean =
+            oldItem.id == newItem.id
+
+        override fun areContentsTheSame(oldItem: TodoEntity, newItem: TodoEntity): Boolean =
+            oldItem == newItem
+    }
+}
